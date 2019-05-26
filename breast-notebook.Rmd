@@ -20,7 +20,7 @@ The phenotypes for characterisation are:
     Mitosis
     Classes, i.e. diagnosis
 
-## Prepare the data
+## clean the data
 ```{r}
 bc_data <- read.table("breast-cancer-wisconsin.data", header = FALSE, sep = ",")
 head(bc_data)
@@ -31,12 +31,14 @@ colnames(bc_data) <- c("sample_code_number", "clump_thickness", "uniformity_of_c
 ```
 We also want to change the name for the response variable
 ```{r}
+bc_data$classes.num=bc_data$classes
+bc_data$classes.num[bc_data$classes.num=="2"] <- 0
+bc_data$classes.num[bc_data$classes.num=="4"] <- 1
 bc_data$classes[bc_data$classes=="2"] <- "benign"
 bc_data$classes[bc_data$classes=="4"] <- "malignant"
 head(bc_data)
 ```
 ```{r}
-
 bc_data[bc_data=="?"]<-NA
 #length(bc_data[bc_data$bare_nuclei==NA])
 nrow(bc_data)-length(complete.cases(bc_data)[complete.cases(bc_data)==TRUE])
@@ -49,16 +51,17 @@ We can also try to apply some algorith that will guess the value with the MICE l
 bc_data<-na.omit(bc_data)
 bc_data[,2:10] <- apply(bc_data[, 2:10], 2, function(x) as.numeric(as.character(x)))
 #bc_data$classes <- as.factor(bc_data$classes)
+#bc_data$classes <- as.numeric(bc_data$classes)
 nrow(bc_data)
 ```
 Now we have a clean dataset.
 
-## Vizualisation
+## Visualisation
 ```{r}
 summary(bc_data)
 ```
 ```{r}
-plot(bc_data[,c(-1,-11)])
+plot(bc_data[,2:10],col=(bc_data$classes.num+1))
 ```
 We dont add the response variable into the scatter plot because box plots are better to display binnary variables
 
@@ -70,8 +73,6 @@ for (c in c(2:10)){
 }
 ```
 
-## PCA
-### what is PCA?
 ## Correlation
 ```{r}
 library(corrplot)
@@ -79,26 +80,70 @@ library(corrplot)
 ```{r}
 # calculate correlation matrix
 corMatMy <- cor(bc_data[, c(-1,-11)])
-corMatMy <- cor(bc_data[, -1])
+#corMatMy <- cor(bc_data[, -1])
 corrplot(corMatMy, order = "hclust")
 
 ```
 
-## Classification
+## PCA
+### what is PCA?
 
+## Classification
 ### why do we do classification?
 
 Choose a classifier C(X) that assigns a class label from {benign; malignant} to a future unlabeled observation X.
 We want to assess the uncertainty in each classification
 we want to understand the roles of the different predictors.
 
+### Create train subset
+We divide the data into test and train dataset. We don't need to use the function scale() because the data uses already the same range ( from 1 to 10)
+
+```{r}
+n<-nrow(bc_data)
+ntrain<-round(2*n/3)
+ntest<-n-ntrain
+train<-sample(n,ntrain)
+bc_data.train<-bc_data[train,]
+bc_data.test<-bc_data[-train,]
+```
+
+
+
+
 ### Bayes Classifier
 
 This probability is called the Bayes error rate. It is the lowest errorprobability that can be achieved by a classifier. It characterizes thedifficulty of the classification task
 
 ### K nearest neighbor
+#### facts
+We can say that half of the information provided by the training set is contained in the nearest neighbor (asymptotically)
+#### implementation
+```{r}
+library(FNN)
+```
 
-We can say that half of the information provided by the training set iscontained in the nearest neighbor (asymptotically)
+```{r}
+classespred<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=5)
+table(bc_data.test$classes,classespred)#adjacent error matrix
+```
+```{r}
+mean(bc_data.test$classes!=classespred)
+```
+#### find the optimal k
+```{r}
+Kmax<-10
+ERR100<-c(0,Kmax)
+for(k in 1:Kmax){
+  classespred<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=k)
+  ERR100[k]<-mean(bc_data.test$classes!=classespred)
+}
+plot(1:Kmax,ERR100,type = "b")
+```
+```{r}
+k_best <- which.min(ERR100)
+k_best
+```
+
 
 ### Linear Classification
 
