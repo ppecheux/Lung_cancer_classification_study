@@ -1,0 +1,54 @@
+---
+title: "ML01-project"
+output: html_notebook
+---
+
+# Breast Cancer data analysis
+
+## Introduction
+The phenotypes for characterisation are:
+
+    Sample ID (code number)
+    Clump thickness
+    Uniformity of cell size
+    Uniformity of cell shape
+    Marginal adhesion
+    Single epithelial cell size
+    Number of bare nuclei
+    Bland chromatin
+    Number of normal nuclei
+    Mitosis
+    Classes, i.e. diagnosis
+
+## Prepare the data
+```{r}
+bc_data <- read.table("breast-cancer-wisconsin.data", header = FALSE, sep = ",")
+head(bc_data)
+```
+As we can see, the dataset has no header, so we add the collum names in order to have an easier manipulation of the data.
+```{r}
+colnames(bc_data) <- c("sample_code_number", "clump_thickness", "uniformity_of_cell_size", "uniformity_of_cell_shape", "marginal_adhesion", "single_epithelial_cell_size", "bare_nuclei", "bland_chromatin", "normal_nucleoli", "mitosis", "classes")
+```
+We also want to change the name for the response variable
+```{r}
+bc_data$classes[bc_data$classes=="2"] <- "benign"
+bc_data$classes[bc_data$classes=="4"] <- "malignant"
+head(bc_data)
+```
+```{r}
+
+bc_data[bc_data=="?"]<-NA
+#length(bc_data[bc_data$bare_nuclei==NA])
+nrow(bc_data)-length(complete.cases(bc_data)[complete.cases(bc_data)==TRUE])
+length(bc_data$bare_nuclei[is.na(bc_data$bare_nuclei)])
+```
+We have 16 missing data that are all in the bc_data$bare_nuclei collunm.
+As the number of observation with missing data is low compared to the total number of observation, we could just ignore these 16 observations for the rest of the study and loose small amount of data. However, we could also replace the missing values by the mean of the collum. It does not change the global mean but reduces the variance.
+We can also try to apply some algorith that will guess the value with the MICE library. We could also use the library Amelia but we have to make the asomption that all variables follow a multivariate law.
+```{r}
+bc_data<-na.omit(bc_data)
+nrow(bc_data)
+```
+Now we have a clean dataset.
+
+
