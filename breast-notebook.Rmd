@@ -47,8 +47,63 @@ As the number of observation with missing data is low compared to the total numb
 We can also try to apply some algorith that will guess the value with the MICE library. We could also use the library Amelia but we have to make the asomption that all variables follow a multivariate law.
 ```{r}
 bc_data<-na.omit(bc_data)
+bc_data[,2:10] <- apply(bc_data[, 2:10], 2, function(x) as.numeric(as.character(x)))
+#bc_data$classes <- as.factor(bc_data$classes)
 nrow(bc_data)
 ```
 Now we have a clean dataset.
+
+## Vizualisation
+```{r}
+summary(bc_data)
+```
+```{r}
+plot(bc_data[,c(-1,-11)])
+```
+We dont add the response variable into the scatter plot because box plots are better to display binnary variables
+
+```{r}
+attach(mtcars)
+par(mfrow=c(3,3))
+for (c in c(2:10)){
+  boxplot(bc_data[,c]~classes,data=bc_data,xlab="classes",ylab=colnames(bc_data)[c])
+}
+```
+
+## PCA
+### what is PCA?
+## Correlation
+```{r}
+library(corrplot)
+```
+```{r}
+# calculate correlation matrix
+corMatMy <- cor(bc_data[, c(-1,-11)])
+corMatMy <- cor(bc_data[, -1])
+corrplot(corMatMy, order = "hclust")
+
+```
+
+## Classification
+
+### why do we do classification?
+
+Choose a classifier C(X) that assigns a class label from {benign; malignant} to a future unlabeled observation X.
+We want to assess the uncertainty in each classification
+we want to understand the roles of the different predictors.
+
+### Bayes Classifier
+
+This probability is called the Bayes error rate. It is the lowest errorprobability that can be achieved by a classifier. It characterizes thedifficulty of the classification task
+
+### K nearest neighbor
+
+We can say that half of the information provided by the training set iscontained in the nearest neighbor (asymptotically)
+
+### Linear Classification
+
+### Naive Bayes
+
+### Logistic regression
 
 
