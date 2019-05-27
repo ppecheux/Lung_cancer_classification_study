@@ -116,7 +116,8 @@ This probability is called the Bayes error rate. It is the lowest errorprobabili
 
 ### K nearest neighbor
 #### facts
-We can say that half of the information provided by the training set is contained in the nearest neighbor (asymptotically)
+We can say that half of the information provided by the training set is contained in the nearest neighbor (asymptotically).
+Howerver, the KNN classifier breaks down for big dimention of datasets. We have 10 predictors and that is already a lot for KNN.
 #### implementation
 ```{r}
 library(FNN)
@@ -131,7 +132,7 @@ mean(bc_data.test$classes!=classespred)
 ```
 #### find the optimal k
 ```{r}
-Kmax<-10
+Kmax<-15
 ERR100<-c(0,Kmax)
 for(k in 1:Kmax){
   classespred<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=k)
@@ -145,10 +146,81 @@ k_best
 ```
 
 
-### Linear Classification
+###  Linear Discriminant Analysis (LDA)
+####Theory
+The parameters to estimates are πk,̂ μk,and ̂Σ
+
+LDA uses the full likelihood based on the joint distribution of X and Y (generative model).
+
+LDA assumes that the data are *Gaussian*. More specifically, it assumes that all classes share the same covariance matrix.
+
+LDA finds linear decision boundaries in a K−1
+dimensional subspace. As such, it is not suited if there are higher-order interactions between the independent variables.
+Although LDA also has a number of parameters proportion top2, it isusually much more stable than QDA. This method is recommended when n is small.
+
+
+####Implementation
+```{r}
+#bc_data.train.scaled<-scale(bc_data[train,c(-1,-11)])
+#bc_data.test.scaled<-scale(bc_data[-train,c(-1,-11)])
+```
+
+```{r}
+library(MASS)
+lda.bc_data <- lda(classes~. ,data=bc_data.train[,c(-1,-12)])
+#lda.bc_data
+pred.bc_data.lda<-predict(lda.bc_data,newdata=bc_data.test[,c(-1,-12)])
+perf <-table(bc_data.test$classes,pred.bc_data.lda$class)
+print(perf)#confusion matrix
+1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+```
+####Receiver Operating Characteristic (ROC)
+In our case we have two classes therefore LDA assigns x to class 2 if xT̂Σ−1(̂μ2−̂μ1 ) >s,where the threshold *s* depends on the estimated prior probabibitie. If the prior probabilities cannot be estimated, or if the model assumption are not verified, a different threshold may give betterresult.
+The Receiver Operating Characteristic (ROC) curve describes theperformance of the classifier for any value of s. By changing the value of s we can change the confusion matrix values. This allow us to prioritize the true positive rate (sensitivity) and false positive rate (1-specificity).
+```{r}
+library(pROC)
+roc_lda<-roc(bc_data.test$classes,as.vector(pred.bc_data.lda$x))
+plot(roc_lda)
+```
+### Quadratic Discriminant Analysis (QDA)
+LDA don't assumes that all classes share the same covariance matrix. So The parameters to estimates are πk,̂ μk,and ̂Σk. Mean between classes, mean inside classe and empirical variance matrix in class k.
+
+####Implementation
+```{r}
+qda.bc_data <- qda(classes~. ,data=bc_data.train[,c(-1,-12)])
+pred.bc_data.qda<-predict(qda.bc_data,newdata=bc_data.test[,c(-1,-12)])
+perf <-table(bc_data.test$classes,pred.bc_data.qda$class)
+print(perf)#confusion matrix
+1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+```
 
 ### Naive Bayes
+####Theory
+For Naive Bayes classifers, we set the covariance matrix to diagonal matrix. This assumption means that the predictors are conditionally independent given the class variable  Y. A further simplification is achieved by assuming that the covariancematrices are diagonal and equal:Σ1=···=Σc=Σ=diag(σ21,...,σ2p).
+Naive Bayes classifiers have a number of parameters proportional to p.They usually outperform other methods when p is very large.
+#### Implementation
+```{r}
+library(naivebayes)
+nb.bc_data <- naive_bayes(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)])
+pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.test[,c(-1,-12)],type="class")
+perf <-table(bc_data.test$classes,pred.bc_data.nb)
+print(perf)#confusion matrix
+1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+```
+
 
 ### Logistic regression
+Logistic regression uses the conditional likelihood based on the conditional probabilities Pk(x) (discriminative model).
+logReg models fit by maximizing the conditional likelihood, which is the likelihood function, assuming thexiare fixed. unction`(β) =logL(β)is maximized using an iterative optimizationalgorithm: the Newton-Raphson algorithm.
+#### Binomial logistic regression
+As we have only two classes to predict, we can use this classifier
+```{r}
+glm.bc_data <- glm(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)],family=binomial)
+pred.bc_data.glm<-predict(glm.bc_data,newdata=bc_data.test[,c(-1,-12)],type="response")
+perf <-table(bc_data.test$classes,pred.bc_data.glm>0.5)
+print(perf)#confusion matrix
+1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+```
+
 
 
