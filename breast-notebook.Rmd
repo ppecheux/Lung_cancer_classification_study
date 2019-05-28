@@ -144,7 +144,24 @@ plot(1:Kmax,ERR100,type = "b")
 k_best <- which.min(ERR100)
 k_best
 ```
-
+#### box plot of optimal k
+```{r}
+Kmax<-15
+max_sim<-20
+K_best<-c(0,max_sim)
+for(s in 1:max_sim){
+  ERR100<-c(0,Kmax)
+  train<-sample(n,ntrain)
+  bc_data.train<-bc_data[train,]
+  bc_data.test<-bc_data[-train,]
+  for(k in 1:Kmax){
+    classespred<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=k)
+    ERR100[k]<-mean(bc_data.test$classes!=classespred)
+  }
+  k_best[s] <- which.min(ERR100)
+}
+boxplot(k_best,ylab="optimal k")
+```
 
 ###  Linear Discriminant Analysis (LDA)
 ####Theory
@@ -221,6 +238,18 @@ perf <-table(bc_data.test$classes,pred.bc_data.glm>0.5)
 print(perf)#confusion matrix
 1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
 ```
+### Tree classifier
+#### Impurity measures Qt
+
+Unlike the tree for the regression, we will not use Qt= MSE within the region. We have three other options:
+Misclassification error, Gini Index, Entropy.
+In our casse we have two classes: if p is the proportion of malign in the region Rt then: 
+Misclassification error = 1−max(p,1−p),
+Gini Index =  2p(1−p),
+Entropy = −plogp−(1−p)log(1−p).
+All three are similar, but entropy and the Gini index are differentiable,and hence more amenable to numerical optimization.
+
+Consider a nodetwith sizentwith impurityQtFor some variablejand split points, we splittin two nodes,tLandtR, with sizesntLandntR, and with impuritiesQtLandQtRThe average decrease of impurity is∆(j,s) =Qt−(ntLntQtL+ntRntQtR)IfQtis the entropy, then∆(j,s)is interpreted as an information gain.We select at each step the splitting variablejand the split pointsthatmaximizes∆(j,s)or, equivalently, that minimizes the average impurityntLntQtL+ntRntQ
 
 
 
