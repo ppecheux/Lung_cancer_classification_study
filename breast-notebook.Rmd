@@ -249,7 +249,48 @@ Gini Index =  2p(1−p),
 Entropy = −plogp−(1−p)log(1−p).
 All three are similar, but entropy and the Gini index are differentiable,and hence more amenable to numerical optimization.
 
-Consider a nodetwith sizentwith impurityQtFor some variablejand split points, we splittin two nodes,tLandtR, with sizesntLandntR, and with impuritiesQtLandQtRThe average decrease of impurity is∆(j,s) =Qt−(ntLntQtL+ntRntQtR)IfQtis the entropy, then∆(j,s)is interpreted as an information gain.We select at each step the splitting variablejand the split pointsthatmaximizes∆(j,s)or, equivalently, that minimizes the average impurityntLntQtL+ntRntQ
+Consider a nodetwith sizentwith impurit yQt. For some variable j and split point s, we split t in two nodes, tL and tR, with sizes ntL and ntR, and with impurities QtL and QtR.
+The average decrease of impurity is ∆(j,s) =Qt−(ntLntQtL+ntRntQtR) If Qt is the entropy, then ∆(j,s)is interpreted as an information gain.We select at each step the splitting variablejand the split pointsthatmaximizes∆(j,s)or, equivalently, that minimizes the average impurity.
 
+When splitting a predictor having q possible unordered values, thereare 2q−1−1 possible partitions of the q values into two groups.
+All the dichotomies can be explored for small q, but the computations become prohibitive for large q. In the 2-class case, this computation simplifies. We order the predictorlevels according to the proportion falling in outcome class 1. Then wesplit this predictor as if it were an ordered predictor. One can show this gives the optimal split, in terms of entropy or Gini index, among all possible 2q−1−1 splits.
+
+Trees can easily handle qualitative predictors without the need tocreate dummy variables. But the algorith of partitionning tends to favor predictor with many levels: they should be avoided. In our case this is not a problem because every predicto has the same number of level.
+
+
+#### Implementation
+```{r}
+library(rpart)
+tree.bc_data<-rpart(classes~.,data=bc_data.train[2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
+#x val is number of cross-validations
+#minbucket is the minimum number of observations in any terminal <leaf> node.
+# cp is complexity parameter. Any split that does not decrease the overall lack of fit by a factor of cp is not attempted.
+plot(tree.bc_data,margin = 0.05)
+text(tree.bc_data,pretty=0,cex=0.8)
+```
+```{r}
+pred.bc_data.tree=predict(tree.bc_data,newdata=bc_data.test,type='class')
+table(bc_data.test[,"classes"],pred.bc_data.tree)
+err<-mean(bc_data.test[,"classes"]!=pred.bc_data.tree)
+print(err)
+```
+```{r}
+plotcp(tree.bc_data)
+printcp(tree.bc_data)
+```
+We see that for a complexity of 0.015, we have the smallest cross validation relative error
+#### Pruning
+```{r}
+pruned_tree<-prune(tree = tree.bc_data,cp=0.036810)
+plot(pruned_tree,margin = 0.1)
+text(pruned_tree,pretty=0)
+pred.pruned_tree=predict(pruned_tree,newdata=bc_data.test[2:11],type='class')
+table(bc_data.test[,"classes"],pred.pruned_tree)
+err1<-mean(bc_data.test[,"classes"]!=pred.pruned_tree)
+print(err1)
+```
+As we can see, by prunning, we have a different confusion matrix, a lower complexity but the same error rate.
+#### Bagging
+As we can see, trees generally do not have the same level of predictiveaccuracy as some of the other modern regression and classificationapproaches. To improve the quality of the prediction, we can use bagging method.
 
 
