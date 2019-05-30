@@ -336,14 +336,15 @@ res<-summary(reg.forward)
 
 # BIC
 
-xtst<-as.matrix(bc_data.2)
-
-#X<-cbind(rep(1,ntst),xtst)
-#ytst<-prostate$lpsa[train==FALSE]
+xtst2<-as.matrix(bc_data.2)
+ntst2<-nrow(xtst)
+X2<-cbind(rep(1,ntst),xtst)
+ytst<-bc_data$classes
 
 best<-which.min(res$bic)
-ypred<-xtst[,res$which[best,]]%*%coef(reg.forward,best)
-mse_forward_bic<-mean((ypred-ytst)^2)
+ypred2<-X2[,res$which[best,]]%*%coef(reg.forward,best)
+mse_forward_bic<-mean((ypred2-ytst)^2)
+
 # Adjusted R2
 plot(reg.forward,scale="adjr2")
 best<-which.max(res$adjr2)
@@ -354,4 +355,3 @@ mse_forward_adjr2<-mean((ypred-ytst)^2)
 reg.backward<-regsubsets(lpsa~.,data=prostate[train==TRUE,],method='backward',nvmax=30)
 plot(reg.backward,scale="bic")
 res<-summary(reg.backward)
-# The results are the same as those of forward selection
