@@ -13,7 +13,7 @@ Clump thickness
 Uniformity of cell size
 Uniformity of cell shape
 Marginal adhesion
-Single epithelial cell size
+Single epithelial cell size 
 Number of bare nuclei
 Bland chromatin
 Number of normal nuclei
@@ -170,7 +170,7 @@ k_best <- which.min(ERR100)
 k_best
 #```
 #### box plot of optimal k
-```{r}
+#```{r}
 Kmax<-15
 max_sim<-20
 K_best<-c(0,max_sim)
@@ -186,7 +186,7 @@ ERR100[k]<-mean(bc_data.test$classes!=classespred)
 k_best[s] <- which.min(ERR100)
 }
 boxplot(k_best,ylab="optimal k")
-```
+#```
 
 ###  Linear Discriminant Analysis (LDA)
 ####Theory
@@ -324,26 +324,46 @@ print(err1)
 ##Model selection 
 
 library(glmnet)
+#library(bestglm)
 library(leaps)
 library(nnet)
 
+#Préparation des données 
+
 bc_data.2<-bc_data[,2:11]
+n<-nrow(bc_data.2)
+ntrain<-round(2*n/3)
+ntest<-n-ntrain
+train<-sample(n,ntrain)
+bc_data.train<-bc_data.2[train,]#on a pas la premiere colonne
+bc_data.test<-bc_data.2[-train,]#on a pas la premiere colonne 
+
+xtst2<-as.matrix(bc_data.test[,1:9])#on enlève la colonne des résultats 
+ntst2<-nrow(xtst2)
+X2<-cbind(rep(1,ntst2),xtst2)
+ytst2<-bc_data.test$classes #on a les réponses (=classes) pour les observations non entrainées 
+
+
+#reg.forward<-regsubsets(as.factor(classes)~.,data=bc_data.2,
+                        #method='forward',nvmax=5)
 reg.forward<-regsubsets(as.factor(classes)~.,data=bc_data.2,
-                        method='forward',nvmax=5)
+                        method='forward')
 plot(reg.forward,scale="bic")
 res<-summary(reg.forward)
+names(res)
+
+res
+res$bic
+
+plot(reg.forward,scale="adjr2")
 
 
 # BIC
 
-xtst2<-as.matrix(bc_data.2)
-ntst2<-nrow(xtst)
-X2<-cbind(rep(1,ntst),xtst)
-ytst<-bc_data$classes
-
 best<-which.min(res$bic)
+
 ypred2<-X2[,res$which[best,]]%*%coef(reg.forward,best)
-mse_forward_bic<-mean((ypred2-ytst)^2)
+mse_forward_bic<-mean((ypred2-ytst2)^2)
 
 # Adjusted R2
 plot(reg.forward,scale="adjr2")
@@ -355,3 +375,6 @@ mse_forward_adjr2<-mean((ypred-ytst)^2)
 reg.backward<-regsubsets(lpsa~.,data=prostate[train==TRUE,],method='backward',nvmax=30)
 plot(reg.backward,scale="bic")
 res<-summary(reg.backward)
+
+bc_data_pronostic <- read.table("C:/Users/Manon/Documents/Cours UTC/GB06/ML01/Project/wpbc.data", header = FALSE, sep = ",")
+
