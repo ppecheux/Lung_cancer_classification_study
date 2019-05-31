@@ -293,4 +293,59 @@ As we can see, by prunning, we have a different confusion matrix, a lower comple
 #### Bagging
 As we can see, trees generally do not have the same level of predictiveaccuracy as some of the other modern regression and classificationapproaches. To improve the quality of the prediction, we can use bagging method.
 
+###Compare using 5 cross validation
+```{r}
+#initialize before the loop
+K<-5
+folds=sample(1:K,ntrain,replace=TRUE)
+CV<-matrix(0,K,7)
+```
+
+```{r}
+tree.bc_data<-rpart(classes~.,data=bc_data.train[2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
+
+  pred.bc_data.tree=predict(tree.bc_data,newdata=bc_data.test,type='class')
+table(bc_data.test[,"classes"],pred.bc_data.tree)
+
+pruned_tree<-prune(tree = tree.bc_data,cp=0.036810)
+```
+
+```{r}
+for(k in (1:K)){
+  #Decision Tree
+  tree.bc_data<-rpart(classes~.,data=bc_data.train[folds!=k,2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
+  
+  pred.bc_data.tree=predict(tree.bc_data,newdata=bc_data.train[folds==k,2:11],type='class')
+  CV[k,6]<-sum(bc_data.train[folds==k,'classes']!=pred.bc_data.tree)
+  #Decision Tree Pruned
+  pruned_tree.bc_data<-prune(tree = tree.bc_data,cp=0.036810)
+  pred.bc_data.pruned_tree=predict(pruned_tree.bc_data,newdata=bc_data.train[folds==k,2:11],type='class')
+  CV[k,7]<-sum(bc_data.train[folds==k,'classes']!=pred.bc_data.pruned_tree)
+  #KNN
+  knn.bc_data<-knn(bc_data.train[folds!=k,2:10],bc_data.train[folds==k,2:10],factor(bc_data.train$classes[folds!=k]),k=5)#k=5 this is the best, we choose it before
+  CV[k,5]<-sum(bc_data.train$classes[folds==k]!=knn.bc_data)
+  #LDA
+  lda.bc_data <- lda(classes~. ,data=bc_data.train[folds!=k,c(-1,-12)])#fit
+  pred.bc_data.lda<-predict(lda.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)])#pred
+  CV[k,1]<-sum(pred.bc_data.lda$class!=bc_data.train$classes[folds==k])
+  #QDA
+  qda.bc_data <- qda(classes~. ,data=bc_data.train[folds!=k,c(-1,-12)])#fit
+  pred.bc_data.qda<-predict(qda.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)])#pred
+  CV[k,2]<-sum(pred.bc_data.qda$class!=bc_data.train$classes[folds==k])
+  #NB
+  nb.bc_data <- naive_bayes(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)])#fit
+  pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="class")#pred
+  CV[k,3]<-sum(pred.bc_data.nb!=bc_data.train$classes[folds==k])
+  #Logreg
+  logreg.bc_data <- multinom(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)])#fit
+  pred.bc_data.logreg<-predict(logreg.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="class")#pred
+  CV[k,4]<-sum(pred.bc_data.logreg!=bc_data.train$classes[folds==k])
+}
+CV
+```
+```{r}
+err_cv=colSums(CV)/ntrain
+print(err_cv)
+```
+
 
