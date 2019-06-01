@@ -185,7 +185,6 @@ Although LDA also has a number of parameters proportion top2, it isusually much 
 ```{r}
 library(MASS)
 lda.bc_data <- lda(classes~. ,data=bc_data.train[,c(-1,-12)])
-#lda.bc_data
 pred.bc_data.lda<-predict(lda.bc_data,newdata=bc_data.test[,c(-1,-12)])
 perf <-table(bc_data.test$classes,pred.bc_data.lda$class)
 print(perf)#confusion matrix
@@ -314,13 +313,7 @@ plot(roc_logreg,add=TRUE,col='green')
 ```
 
 ```{r}
-vec_auc<-c(auc(roc_lda),
-auc(roc_knn),
-auc(roc_tree),
-auc(roc_pruned_tree),
-auc(roc_qda),
-auc(roc_nb),
-auc(roc_logreg))
+vec_auc<-c(auc(roc_lda),auc(roc_knn),auc(roc_tree),auc(roc_pruned_tree),auc(roc_qda),auc(roc_nb),auc(roc_logreg))
 
 AUC=matrix(0,1,7)
 
@@ -329,6 +322,65 @@ for (i in (1:7)){
   AUC[1,i]=vec_auc[i]
 }
 boxplot(AUC,ylab = "ROC AUC", names=c("lda","knn","tree","pruned_tree","qda","nb","logreg")) 
+```
+###Compare on repeated tests
+```{r}
+M<-10
+ERR<-matrix(0,M,6)
+AUC=matrix(0,M,6)
+for(i in 1:M){
+  #sampling
+  train<-sample(n,ntrain)
+  bc_data.train<-bc_data[train,]
+  bc_data.test<-bc_data[-train,]
+  #KNN
+  pred.bc_data.knn<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=5)
+  ERR[i,1]<-mean(bc_data.test$classes!=pred.bc_data.knn)
+  #LDA
+  lda.bc_data <- lda(classes~. ,data=bc_data.train[,c(-1,-12)])
+  pred.bc_data.lda<-predict(lda.bc_data,newdata=bc_data.test[,c(-1,-12)])
+  perf <-table(bc_data.test$classes,pred.bc_data.lda$class)
+  ERR[i,2]<-1-sum(diag(perf))/nrow(bc_data.test)#mean error rat
+  #QDA
+  qda.bc_data <- qda(classes~. ,data=bc_data.train[,c(-1,-12)])
+  pred.bc_data.qda<-predict(qda.bc_data,newdata=bc_data.test[,c(-1,-12)])
+  perf <-table(bc_data.test$classes,pred.bc_data.qda$class)
+  ERR[i,3]<-1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+  #NB
+  nb.bc_data <- naive_bayes(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)])
+  pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.test[,c(-1,-12)],type="class")
+  pred.bc_data.nb.prob<-predict(nb.bc_data,newdata=bc_data.test[,c(-1,-12)],type="prob")
+  perf <-table(bc_data.test$classes,pred.bc_data.nb)
+  ERR[i,4]<-1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+  #LOGREG
+  glm.bc_data <- glm(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)],family=binomial)
+  pred.bc_data.glm<-predict(glm.bc_data,newdata=bc_data.test[,c(-1,-12)],type="response")
+  perf <-table(bc_data.test$classes,pred.bc_data.glm>0.5)
+  ERR[i,5]<-1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
+  #PRUNED_TREE
+  tree.bc_data<-rpart(classes~.,data=bc_data.train[2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
+  pruned_tree<-prune(tree = tree.bc_data,cp=0.036810)
+  pred.pruned_tree=predict(pruned_tree,newdata=bc_data.test[2:11],type='class')
+  table(bc_data.test[,"classes"],pred.pruned_tree)
+  ERR[i,6]<-mean(bc_data.test[,"classes"]!=pred.pruned_tree)
+  
+  #AUC
+  roc_lda<-roc(bc_data.test$classes,as.vector(pred.bc_data.lda$x))
+  roc_knn<-roc(bc_data.test$classes,as.vector(as.numeric(pred.bc_data.knn)))
+  roc_pruned_tree<-roc(bc_data.test$classes,as.vector(as.numeric(pred.pruned_tree)))
+  roc_qda<-roc(bc_data.test$classes,as.vector(pred.bc_data.qda$posterior[,1]))
+  roc_nb<-roc(bc_data.test$classes,as.vector(pred.bc_data.nb.prob[,1]))
+  roc_logreg<-roc(bc_data.test$classes,as.vector(pred.bc_data.glm))
+  
+  vec_auc<-c(auc(roc_lda),auc(roc_knn),auc(roc_pruned_tree),auc(roc_qda),auc(roc_nb),auc(roc_logreg))
+  for (j in (1:6)){
+    print(vec_auc[j])
+    AUC[i,j]=vec_auc[j]
+  }
+
+}
+boxplot(ERR,ylab="Test error rate",names=c("KNN","LDA","QDA","NB","LR","P_TREE"))
+boxplot(AUC,ylab = "ROC AUC", names=c("lda","knn","pruned_tree","qda","nb","logreg")) 
 ```
 
 ###Compare using 5 cross validation
