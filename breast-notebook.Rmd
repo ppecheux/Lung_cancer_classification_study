@@ -1,6 +1,8 @@
 ---
 title: "ML01-project"
-output: html_notebook
+output:
+  word_document: default
+  html_notebook: default
 ---
 
 # Breast Cancer data analysis
@@ -418,9 +420,13 @@ for(k in (1:K)){
   pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="class")#pred
   CV[k,3]<-sum(pred.bc_data.nb!=bc_data.train$classes[folds==k])
   #Logreg
-  logreg.bc_data <- multinom(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)])#fit
-  pred.bc_data.logreg<-predict(logreg.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="class")#pred
-  CV[k,4]<-sum(pred.bc_data.logreg!=bc_data.train$classes[folds==k])
+  #glm.bc_data <- glm(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)],family=binomial)
+  #
+  logreg.bc_data <- glm(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)],family = binomial)#fit
+  pred.bc_data.logreg<-predict(logreg.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="response")#pred
+  perf <-table(bc_data.train$classes[folds==k],pred.bc_data.logreg<0.5)#just a matrix to have the errors on the diagonals:
+  CV[k,4]<- sum(diag(perf))#mean error rate
+
 }
 CV
 ```
