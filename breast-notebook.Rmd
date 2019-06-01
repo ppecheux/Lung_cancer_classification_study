@@ -124,11 +124,11 @@ library(FNN)
 ```
 
 ```{r}
-classespred<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=5)
-table(bc_data.test$classes,classespred)#adjacent error matrix
+pred.bc_data.knn<-knn(bc_data.train[,2:10],bc_data.test[,2:10],factor(bc_data.train$classes),k=5)
+table(bc_data.test$classes,pred.bc_data.knn)#adjacent error matrix
 ```
 ```{r}
-mean(bc_data.test$classes!=classespred)
+mean(bc_data.test$classes!=pred.bc_data.knn)
 ```
 #### find the optimal k
 ```{r}
@@ -220,6 +220,7 @@ Naive Bayes classifiers have a number of parameters proportional to p.They usual
 library(naivebayes)
 nb.bc_data <- naive_bayes(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)])
 pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.test[,c(-1,-12)],type="class")
+pred.bc_data.nb.prob<-predict(nb.bc_data,newdata=bc_data.test[,c(-1,-12)],type="prob")
 perf <-table(bc_data.test$classes,pred.bc_data.nb)
 print(perf)#confusion matrix
 1-sum(diag(perf))/nrow(bc_data.test)#mean error rate
@@ -293,21 +294,49 @@ As we can see, by prunning, we have a different confusion matrix, a lower comple
 #### Bagging
 As we can see, trees generally do not have the same level of predictiveaccuracy as some of the other modern regression and classificationapproaches. To improve the quality of the prediction, we can use bagging method.
 
+### Compare the roc curve
+```{r}
+
+roc_lda<-roc(bc_data.test$classes,as.vector(pred.bc_data.lda$x))
+plot(roc_lda)
+roc_knn<-roc(bc_data.test$classes,as.vector(as.numeric(pred.bc_data.knn)))
+plot(roc_knn,add=TRUE,col='yellow')
+roc_tree<-roc(bc_data.test$classes,as.vector(as.numeric(pred.bc_data.tree)))
+plot(roc_tree,add=TRUE,col='pink')
+roc_pruned_tree<-roc(bc_data.test$classes,as.vector(as.numeric(pred.pruned_tree)))
+plot(roc_pruned_tree,add=TRUE,col='violet')
+roc_qda<-roc(bc_data.test$classes,as.vector(pred.bc_data.qda$posterior[,1]))
+plot(roc_qda,add=TRUE,col='red')
+roc_nb<-roc(bc_data.test$classes,as.vector(pred.bc_data.nb.prob[,1]))
+plot(roc_nb,add=TRUE,col='blue')
+roc_logreg<-roc(bc_data.test$classes,as.vector(pred.bc_data.glm))
+plot(roc_logreg,add=TRUE,col='green')
+```
+
+```{r}
+vec_auc<-c(auc(roc_lda),
+auc(roc_knn),
+auc(roc_tree),
+auc(roc_pruned_tree),
+auc(roc_qda),
+auc(roc_nb),
+auc(roc_logreg))
+
+AUC=matrix(0,1,7)
+
+for (i in (1:7)){
+  print(vec_auc[i])
+  AUC[1,i]=vec_auc[i]
+}
+boxplot(AUC,ylab = "ROC AUC", names=c("lda","knn","tree","pruned_tree","qda","nb","logreg")) 
+```
+
 ###Compare using 5 cross validation
 ```{r}
 #initialize before the loop
 K<-5
 folds=sample(1:K,ntrain,replace=TRUE)
 CV<-matrix(0,K,7)
-```
-
-```{r}
-tree.bc_data<-rpart(classes~.,data=bc_data.train[2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
-
-  pred.bc_data.tree=predict(tree.bc_data,newdata=bc_data.test,type='class')
-table(bc_data.test[,"classes"],pred.bc_data.tree)
-
-pruned_tree<-prune(tree = tree.bc_data,cp=0.036810)
 ```
 
 ```{r}
@@ -344,8 +373,14 @@ for(k in (1:K)){
 CV
 ```
 ```{r}
+boxplot(CV,ylab='validation error rate',names=c("LDA","QDA","NB","LR","KNN","Tree","Pruned_T"))
 err_cv=colSums(CV)/ntrain
 print(err_cv)
 ```
+
+
+
+### Decision on the best model,
+We will chose the model with thelogistic regression because it offers the best perfomences on the trainning set.
 
 
