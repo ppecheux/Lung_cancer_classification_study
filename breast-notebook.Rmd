@@ -51,7 +51,10 @@ As the number of observation with missing data is low compared to the total numb
 We can also try to apply some algorith that will guess the value with the MICE library. We could also use the library Amelia but we have to make the asomption that all variables follow a multivariate law.
 ```{r}
 bc_data_missing<-bc_data
+
 bc_data<-na.omit(bc_data)
+bc_data_knn<-bc_data#used in comparison
+
 bc_data[,2:10] <- apply(bc_data[, 2:10], 2, function(x) as.numeric(as.character(x)))
 #bc_data$classes <- as.factor(bc_data$classes)
 #bc_data$classes <- as.numeric(bc_data$classes)
@@ -513,6 +516,34 @@ bc_data_missing_lm[is.na(bc_data_missing$bare_nuclei),"bare_nuclei"]<-pred
   #i<-predict(reg,newdata=bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10])
 #}
 function.cross_validation(bc_data_missing_lm)
+```
+```{r}
+
+bc_data_missing_knn<-bc_data_missing
+
+for (i in 1:ncol(bc_data_missing_knn)){
+  if (class(bc_data_missing_knn[5,i])=='factor'){
+    bc_data_missing_knn[,i] = as.numeric(bc_data_missing_knn[,i])
+  }
+}
+
+for (i in 1:ncol(bc_data_knn)){
+  if (class(bc_data_knn[5,i])=='factor'){
+    bc_data_knn[,i] = as.numeric(bc_data_knn[,i])
+  }
+}
+bc_data.train2<-scale(bc_data_knn[,-11])
+y.train<-bc_data_knn$bare_nuclei
+#print(y.train)
+#print(bc_data.train2)
+reg<-knn.reg(train=bc_data.train2, y=y.train, k = 5)# on applique le model knn en se basant sur le training valeurs on fait les test sur la partie réservée. y est la réponse des valeur train
+
+#mean((y.test-reg$pred)^2) # = Mean squared error 
+#plot(y.test,reg$pred,xlab='y',ylab='prediction') 
+#si les point sont sur la ligne x=y c'est que le aleur prédite est la même que la vraie valuer 
+#abline(0,1)
+#knn.predict(train=bc_data.train2, bc_data_missing_knn, y=y.train, k=5)
+#pred<-predict(reg,newdata=bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10])
 ```
 
 #REGRESSION
