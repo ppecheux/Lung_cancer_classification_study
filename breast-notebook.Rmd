@@ -50,6 +50,7 @@ We have 16 missing data that are all in the bc_data$bare_nuclei collunm.
 As the number of observation with missing data is low compared to the total number of observation, we could just ignore these 16 observations for the rest of the study and loose small amount of data. However, we could also replace the missing values by the mean of the collum. It does not change the global mean but reduces the variance.
 We can also try to apply some algorith that will guess the value with the MICE library. We could also use the library Amelia but we have to make the asomption that all variables follow a multivariate law.
 ```{r}
+bc_data_missing<-bc_data
 bc_data<-na.omit(bc_data)
 bc_data[,2:10] <- apply(bc_data[, 2:10], 2, function(x) as.numeric(as.character(x)))
 #bc_data$classes <- as.factor(bc_data$classes)
@@ -386,14 +387,12 @@ boxplot(AUC,ylab = "ROC AUC", names=c("lda","knn","pruned_tree","qda","nb","logr
 ```
 
 ###Compare using 5 cross validation
+
 ```{r}
 #initialize before the loop
 K<-5
 folds=sample(1:K,ntrain,replace=TRUE)
 CV<-matrix(0,K,7)
-```
-
-```{r}
 for(k in (1:K)){
   #Decision Tree
   tree.bc_data<-rpart(classes~.,data=bc_data.train[folds!=k,2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
@@ -428,17 +427,183 @@ for(k in (1:K)){
   CV[k,4]<- sum(diag(perf))#mean error rate
 
 }
-CV
-```
-```{r}
+print(CV)
 boxplot(CV,ylab='validation error rate',names=c("LDA","QDA","NB","LR","KNN","Tree","Pruned_T"))
 err_cv=colSums(CV)/ntrain
 print(err_cv)
 ```
+```{r}
+function.cross_validation<-function(dataset=bc_data){
+  
+  n<-nrow(dataset)
+  ntrain<-round(2*n/3)
+  ntest<-n-ntrain
+  train<-sample(n,ntrain)
+  bc_data.train<-dataset[train,]
+  bc_data.test<-dataset[-train,]
+    #initialize before the loop
+  K<-5
+  folds=sample(1:K,ntrain,replace=TRUE)
+  CV<-matrix(0,K,7)
+  for(k in (1:K)){
+    #Decision Tree
+    tree.bc_data<-rpart(classes~.,data=bc_data.train[folds!=k,2:11],method="class",control=rpart.control(xval = 10,minbucket = 5,cp=0))
+    
+    pred.bc_data.tree=predict(tree.bc_data,newdata=bc_data.train[folds==k,2:11],type='class')
+    CV[k,6]<-sum(bc_data.train[folds==k,'classes']!=pred.bc_data.tree)
+    #Decision Tree Pruned
+    pruned_tree.bc_data<-prune(tree = tree.bc_data,cp=0.036810)
+    pred.bc_data.pruned_tree=predict(pruned_tree.bc_data,newdata=bc_data.train[folds==k,2:11],type='class')
+    CV[k,7]<-sum(bc_data.train[folds==k,'classes']!=pred.bc_data.pruned_tree)
+    #KNN
+    knn.bc_data<-knn(bc_data.train[folds!=k,2:10],bc_data.train[folds==k,2:10],factor(bc_data.train$classes[folds!=k]),k=5)#k=5 this is the best, we choose it before
+    CV[k,5]<-sum(bc_data.train$classes[folds==k]!=knn.bc_data)
+    #LDA
+    lda.bc_data <- lda(classes~. ,data=bc_data.train[folds!=k,c(-1,-12)])#fit
+    pred.bc_data.lda<-predict(lda.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)])#pred
+    CV[k,1]<-sum(pred.bc_data.lda$class!=bc_data.train$classes[folds==k])
+    #QDA
+    qda.bc_data <- qda(classes~. ,data=bc_data.train[folds!=k,c(-1,-12)])#fit
+    pred.bc_data.qda<-predict(qda.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)])#pred
+    CV[k,2]<-sum(pred.bc_data.qda$class!=bc_data.train$classes[folds==k])
+    #NB
+    nb.bc_data <- naive_bayes(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)])#fit
+    pred.bc_data.nb<-predict(nb.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="class")#pred
+    CV[k,3]<-sum(pred.bc_data.nb!=bc_data.train$classes[folds==k])
+    #Logreg
+    #glm.bc_data <- glm(as.factor(classes)~. ,data=bc_data.train[,c(-1,-12)],family=binomial)
+    #
+    logreg.bc_data <- glm(as.factor(classes)~. , data = bc_data.train[folds!=k,c(-1,-12)],family = binomial)#fit
+    pred.bc_data.logreg<-predict(logreg.bc_data,newdata=bc_data.train[folds==k,c(-1,-12)],type="response")#pred
+    perf <-table(bc_data.train$classes[folds==k],pred.bc_data.logreg<0.5)#just a matrix to have the errors on the diagonals:
+    CV[k,4]<- sum(diag(perf))#mean error rate
+  
+  }
+  print(CV)
+  boxplot(CV,ylab='validation error rate',names=c("LDA","QDA","NB","LR","KNN","Tree","Pruned_T"))
+  err_cv=colSums(CV)/ntrain
+  print(err_cv)
+}
+```
+```{r}
+function.cross_validation()
+```
+
 
 
 
 ### Decision on the best model,
 We will chose the model with thelogistic regression because it offers the best perfomences on the trainning set.
 
+## Regression for a dataset without missing values
+
+```{r}
+reg<- lm(bare_nuclei ~. , data=bc_data[,2:10])
+pred<-predict(reg,newdata=bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10])
+print(length(pred))
+bc_data_missing_lm<-bc_data_missing
+bc_data_missing_lm[,"bare_nuclei"]<-as.numeric(bc_data_missing[,"bare_nuclei"])
+bc_data_missing_lm[is.na(bc_data_missing$bare_nuclei),"bare_nuclei"]<-pred
+#print(bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10])
+
+#for( i in bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10]){
+#  print(length(i[1]))
+#  print(i[1])
+#  print(i)
+  #i<-predict(reg,newdata=bc_data_missing[is.na(bc_data_missing$bare_nuclei),2:10])
+#}
+function.cross_validation(bc_data_missing_lm)
+```
+
+#REGRESSION
+```{r}
+#Clean data
+
+bc_data <- read.table("breast-cancer-wisconsin.data", header = FALSE, sep = ",")
+head(bc_data)
+
+colnames(bc_data) <- c("sample_code_number", "clump_thickness", "uniformity_of_cell_size", "uniformity_of_cell_shape", "marginal_adhesion", "single_epithelial_cell_size", "bare_nuclei", "bland_chromatin", "normal_nucleoli", "mitosis", "classes")
+
+bc_data$classes.num=bc_data$classes # we copie the class column and name it classes.num
+bc_data$classes.num[bc_data$classes.num=="2"] <- 0
+bc_data$classes.num[bc_data$classes.num=="4"] <- 1
+bc_data$classes[bc_data$classes=="2"] <- "benign"
+bc_data$classes[bc_data$classes=="4"] <- "malignant"
+head(bc_data)
+
+bc_data[bc_data=="?"]<-NA
+nrow(bc_data)-length(complete.cases(bc_data)[complete.cases(bc_data)==TRUE])
+length(bc_data$bare_nuclei[is.na(bc_data$bare_nuclei)])
+
+bc_data_sansna<-na.omit(bc_data)
+
+# We want to predict the bare nuclei
+
+data<-bc_data_sansna[,2:10]
+plot(data)
+
+#on va essayer de prédire toute la colonne bare nuclei comme ça 
+
+library('FNN')
+
+for (i in 1:ncol(data)){
+  if (class(data[5,i])=='factor'){
+    data[,i] = as.numeric(data[,i])
+    print(c(i, "DONE"))
+    
+  }
+  print(c(i,class(data[,i])))
+}
+
+n<-nrow(data)
+ntrain<-round(2*n/3)
+ntest<-n-ntrain
+train<-sample(n,ntrain)
+bc_data.train<-data[train,]
+bc_data.train2<-scale(bc_data.train)
+y.train<-bc_data.train$bare_nuclei
+bc_data.test<-data[-train,]
+bc_data.test2<-scale(bc_data.test)
+y.test<-bc_data.test$bare_nuclei
+
+
+"x.train<-scale(data[data$train==T,1:4]) #on garde que les colonnes 1,2,3 et4 où train = true
+summary(x.train)
+y.train<-data[data$train==T,5]# que la colonne lpsa où train = true 
+y.train
+x.tst<-scale(data[data$train==F,1:4])#les 4 premieres colonnes où train =F
+y.tst<-data[data$train==F,5]# que la colonne lpsa où train = f"
+
+class(bc_data[,2])
+
+reg<-knn.reg(train=bc_data.train2, test = bc_data.test2, y=y.train, k = 5)# on applique le model knn en se basant sur le training valeurs on fait les test sur la partie réservée. y est la réponse des valeur train
+
+mean((y.test-reg$pred)^2) # = Mean squared error 
+plot(y.test,reg$pred,xlab='y',ylab='prediction') 
+#si les point sont sur la ligne x=y c'est que le aleur prédite est la même que la vraie valuer 
+abline(0,1)
+
+
+
+
+reg<- lm(bare_nuclei ~. , data=bc_data.train)
+reg
+pred<-predict(reg,newdata=bc_data.test)
+plot(y.test,pred)
+abline(0,1)
+
+mse<-mean((y.test-pred)^2)
+mse
+```
+
+```{r}
+reg<- lm(bare_nuclei ~. , data=bc_data.train)
+reg
+pred<-predict(reg,newdata=bc_data.test)
+plot(y.test,pred)
+abline(0,1)
+
+mse<-mean((y.test-pred)^2)
+mse
+```
 
